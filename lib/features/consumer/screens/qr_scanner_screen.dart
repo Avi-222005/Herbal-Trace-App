@@ -172,7 +172,7 @@ class ScannerOverlay extends CustomPainter {
       ..color = Colors.black.withOpacity(0.5)
       ..style = PaintingStyle.fill;
 
-    final cutOutSize = 300.0;
+    const cutOutSize = 300.0;
     final left = (size.width - cutOutSize) / 2;
     final top = (size.height - cutOutSize) / 2;
     final cutOutRect = Rect.fromLTWH(left, top, cutOutSize, cutOutSize);

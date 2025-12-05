@@ -38,7 +38,7 @@ class AppTheme {
       onSecondary: Colors.white,
       onSurface: textPrimary,
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: cardLight,
       elevation: 2,
       shadowColor: Colors.black.withOpacity(0.08),
@@ -132,7 +132,7 @@ class AppTheme {
       onSecondary: Colors.white,
       onSurface: textLight,
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: cardDark,
       elevation: 2,
       shadowColor: Colors.black.withOpacity(0.3),

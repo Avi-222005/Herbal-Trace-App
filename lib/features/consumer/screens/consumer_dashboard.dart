@@ -144,7 +144,7 @@ class ConsumerDashboard extends StatelessWidget {
                         localeProvider.isHindi
                             ? 'कोई स्कैन नहीं'
                             : 'No scans yet',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 16,
                           color: AppTheme.textSecondary,
                         ),

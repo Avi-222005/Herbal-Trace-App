@@ -5,9 +5,12 @@ import '../../../core/models/user.dart';
 import '../../../core/providers/locale_provider.dart';
 import '../providers/auth_provider.dart';
 import '../../../core/routes/app_router.dart';
+import 'signup_screen.dart';
 
 class RoleSelectionScreen extends StatefulWidget {
-  const RoleSelectionScreen({super.key});
+  final bool isSignup;
+  
+  const RoleSelectionScreen({super.key, this.isSignup = false});
 
   @override
   State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
@@ -170,7 +173,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 14,
                       color: AppTheme.textSecondary,
                     ),
@@ -193,6 +196,17 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   Future<void> _handleContinue() async {
     if (_selectedRole == null) return;
 
+    // If signup mode, navigate directly to signup screen
+    if (widget.isSignup) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => SignupScreen(role: _selectedRole!),
+        ),
+      );
+      return;
+    }
+
+    // Otherwise, proceed with login (existing logic)
     setState(() {
       _isLoading = true;
     });

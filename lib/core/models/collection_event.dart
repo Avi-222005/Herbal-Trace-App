@@ -29,10 +29,10 @@ class CollectionEvent extends HiveObject {
   final double? moisture;
 
   @HiveField(8)
-  final String? quality;
+  final double? temperature;
 
   @HiveField(9)
-  final String? notes;
+  final double? humidity;
 
   @HiveField(10)
   final DateTime timestamp;
@@ -52,8 +52,8 @@ class CollectionEvent extends HiveObject {
     required this.imagePaths,
     this.weight,
     this.moisture,
-    this.quality,
-    this.notes,
+    this.temperature,
+    this.humidity,
     required this.timestamp,
     this.isSynced = false,
     this.blockchainHash,
@@ -69,8 +69,8 @@ class CollectionEvent extends HiveObject {
       'imagePaths': imagePaths,
       'weight': weight,
       'moisture': moisture,
-      'quality': quality,
-      'notes': notes,
+      'temperature': temperature,
+      'humidity': humidity,
       'timestamp': timestamp.toIso8601String(),
       'isSynced': isSynced,
       'blockchainHash': blockchainHash,
@@ -87,8 +87,8 @@ class CollectionEvent extends HiveObject {
       imagePaths: List<String>.from(json['imagePaths']),
       weight: json['weight']?.toDouble(),
       moisture: json['moisture']?.toDouble(),
-      quality: json['quality'],
-      notes: json['notes'],
+      temperature: json['temperature']?.toDouble(),
+      humidity: json['humidity']?.toDouble(),
       timestamp: DateTime.parse(json['timestamp']),
       isSynced: json['isSynced'] ?? false,
       blockchainHash: json['blockchainHash'],

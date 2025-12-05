@@ -40,8 +40,8 @@ class CollectionProvider extends ChangeNotifier {
     required List<String> imagePaths,
     double? weight,
     double? moisture,
-    String? quality,
-    String? notes,
+    double? temperature,
+    double? humidity,
   }) async {
     final event = CollectionEvent(
       id: const Uuid().v4(),
@@ -52,8 +52,8 @@ class CollectionProvider extends ChangeNotifier {
       imagePaths: imagePaths,
       weight: weight,
       moisture: moisture,
-      quality: quality,
-      notes: notes,
+      temperature: temperature,
+      humidity: humidity,
       timestamp: DateTime.now(),
       isSynced: false,
     );

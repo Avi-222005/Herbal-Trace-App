@@ -5,6 +5,7 @@ import 'dart:io';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/providers/locale_provider.dart';
 import '../../../core/services/location_service.dart';
+import '../../../core/services/weather_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/collection_provider.dart';
 
@@ -20,13 +21,14 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
   final _speciesController = TextEditingController();
   final _weightController = TextEditingController();
   final _moistureController = TextEditingController();
-  final _notesController = TextEditingController();
 
-  String? _selectedQuality;
-  List<File> _images = [];
+  final List<File> _images = [];
   double? _latitude;
   double? _longitude;
+  double? _temperature;
+  double? _humidity;
   bool _isLoadingLocation = false;
+  bool _isLoadingWeather = false;
   bool _isSubmitting = false;
 
   final List<String> _herbSpecies = [
@@ -40,13 +42,6 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
     'Amla',
   ];
 
-  final List<String> _qualityOptions = [
-    'Premium',
-    'Grade A',
-    'Grade B',
-    'Standard'
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -58,7 +53,6 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
     _speciesController.dispose();
     _weightController.dispose();
     _moistureController.dispose();
-    _notesController.dispose();
     super.dispose();
   }
 
@@ -75,10 +69,38 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
         _latitude = position.latitude;
         _longitude = position.longitude;
       });
+      
+      // Fetch weather data after getting location
+      await _getWeatherData();
     }
 
     setState(() {
       _isLoadingLocation = false;
+    });
+  }
+
+  Future<void> _getWeatherData() async {
+    if (_latitude == null || _longitude == null) return;
+
+    setState(() {
+      _isLoadingWeather = true;
+    });
+
+    final weatherService = WeatherService();
+    final weatherData = await weatherService.getWeatherDataFree(
+      latitude: _latitude!,
+      longitude: _longitude!,
+    );
+
+    if (weatherData != null) {
+      setState(() {
+        _temperature = weatherData['temperature'];
+        _humidity = weatherData['humidity'];
+      });
+    }
+
+    setState(() {
+      _isLoadingWeather = false;
     });
   }
 
@@ -142,8 +164,8 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
         moisture: _moistureController.text.isNotEmpty
             ? double.tryParse(_moistureController.text)
             : null,
-        quality: _selectedQuality,
-        notes: _notesController.text.isNotEmpty ? _notesController.text : null,
+        temperature: _temperature,
+        humidity: _humidity,
       );
 
       if (!mounted) return;
@@ -314,36 +336,76 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
 
               const SizedBox(height: 16),
 
-              // Quality Dropdown
-              DropdownButtonFormField<String>(
-                value: _selectedQuality,
-                decoration: InputDecoration(
-                  labelText: localeProvider.translate('quality'),
-                  prefixIcon: const Icon(Icons.star),
+              // Weather Data Section (Auto-fetched)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryGreen.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.primaryGreen.withOpacity(0.3)),
                 ),
-                items: _qualityOptions.map((quality) {
-                  return DropdownMenuItem(
-                    value: quality,
-                    child: Text(quality),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedQuality = value;
-                  });
-                },
-              ),
-
-              const SizedBox(height: 16),
-
-              // Notes
-              TextFormField(
-                controller: _notesController,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  labelText: localeProvider.translate('notes'),
-                  prefixIcon: const Icon(Icons.notes),
-                  alignLabelWithHint: true,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.cloud, color: AppTheme.primaryGreen),
+                        const SizedBox(width: 8),
+                        Text(
+                          localeProvider.isHindi ? 'मौसम डेटा' : 'Weather Data',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (_isLoadingWeather)
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (_temperature != null && _humidity != null) ...[
+                      Row(
+                        children: [
+                          const Icon(Icons.thermostat, size: 20, color: Colors.orange),
+                          const SizedBox(width: 8),
+                          Text(
+                            localeProvider.isHindi
+                                ? 'तापमान: ${_temperature!.toStringAsFixed(1)}°C'
+                                : 'Temperature: ${_temperature!.toStringAsFixed(1)}°C',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.water_drop, size: 20, color: Colors.blue),
+                          const SizedBox(width: 8),
+                          Text(
+                            localeProvider.isHindi
+                                ? 'आर्द्रता: ${_humidity!.toStringAsFixed(0)}%'
+                                : 'Humidity: ${_humidity!.toStringAsFixed(0)}%',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    ] else if (!_isLoadingWeather) ...[
+                      Text(
+                        localeProvider.isHindi
+                            ? 'मौसम डेटा उपलब्ध नहीं है'
+                            : 'Weather data not available',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
 

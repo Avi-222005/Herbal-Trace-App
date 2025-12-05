@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/services/storage_service.dart';
 import 'core/services/sync_service.dart';
 import 'core/services/location_service.dart';
 import 'features/auth/providers/auth_provider.dart';
-import 'features/auth/screens/login_screen.dart';
+import 'features/splash/splash_screen.dart';
 import 'features/farmer/providers/collection_provider.dart';
 import 'features/consumer/providers/scan_provider.dart';
 import 'core/providers/theme_provider.dart';
@@ -17,6 +19,11 @@ import 'core/routes/app_router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   // Initialize Hive for offline storage
   await Hive.initFlutter();
@@ -56,7 +63,7 @@ class HerbalTraceApp extends StatelessWidget {
             themeMode: themeProvider.themeMode,
             locale: localeProvider.locale,
             onGenerateRoute: AppRouter.generateRoute,
-            home: const LoginScreen(),
+            home: const SplashScreen(),
           );
         },
       ),

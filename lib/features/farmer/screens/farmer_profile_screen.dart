@@ -83,7 +83,7 @@ class FarmerProfileScreen extends StatelessWidget {
                     trailing: Switch(
                       value: themeProvider.isDarkMode,
                       onChanged: (_) => themeProvider.toggleTheme(),
-                      activeColor: AppTheme.primaryGreen,
+                      activeThumbColor: AppTheme.primaryGreen,
                     ),
                   ),
                   const Divider(height: 1),

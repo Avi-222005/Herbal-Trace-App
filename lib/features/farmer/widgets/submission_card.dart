@@ -82,23 +82,23 @@ class SubmissionCard extends StatelessWidget {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Icon(Icons.calendar_today,
+                  const Icon(Icons.calendar_today,
                       size: 14, color: AppTheme.textSecondary),
                   const SizedBox(width: 6),
                   Text(
                     DateFormat('MMM dd, yyyy').format(event.timestamp),
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 13,
                       color: AppTheme.textSecondary,
                     ),
                   ),
                   const SizedBox(width: 16),
                   if (event.weight != null) ...[
-                    Icon(Icons.scale, size: 14, color: AppTheme.textSecondary),
+                    const Icon(Icons.scale, size: 14, color: AppTheme.textSecondary),
                     const SizedBox(width: 6),
                     Text(
                       '${event.weight} kg',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13,
                         color: AppTheme.textSecondary,
                       ),
@@ -109,13 +109,13 @@ class SubmissionCard extends StatelessWidget {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Icon(Icons.location_on,
+                  const Icon(Icons.location_on,
                       size: 14, color: AppTheme.textSecondary),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       '${event.latitude.toStringAsFixed(4)}, ${event.longitude.toStringAsFixed(4)}',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13,
                         color: AppTheme.textSecondary,
                       ),
@@ -171,19 +171,12 @@ class SubmissionCard extends StatelessWidget {
               _buildDetailRow('Weight', '${event.weight} kg'),
             if (event.moisture != null)
               _buildDetailRow('Moisture', '${event.moisture}%'),
-            if (event.quality != null)
-              _buildDetailRow('Quality', event.quality!),
+            if (event.temperature != null)
+              _buildDetailRow('Temperature', '${event.temperature!.toStringAsFixed(1)}°C'),
+            if (event.humidity != null)
+              _buildDetailRow('Humidity', '${event.humidity!.toStringAsFixed(0)}%'),
             _buildDetailRow('Location',
                 '${event.latitude.toStringAsFixed(6)}, ${event.longitude.toStringAsFixed(6)}'),
-            if (event.notes != null) ...[
-              const SizedBox(height: 12),
-              const Text(
-                'Notes:',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 8),
-              Text(event.notes!),
-            ],
             const Spacer(),
             if (event.blockchainHash != null) ...[
               Container(
@@ -209,7 +202,7 @@ class SubmissionCard extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            event.blockchainHash!.substring(0, 16) + '...',
+                            '${event.blockchainHash!.substring(0, 16)}...',
                             style: const TextStyle(
                               fontSize: 12,
                               color: AppTheme.textSecondary,
