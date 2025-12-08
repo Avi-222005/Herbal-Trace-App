@@ -46,6 +46,8 @@ class User {
       metadata: json['metadata'],
     );
   }
+
+  get token => null;
 }
 
 enum UserRole {

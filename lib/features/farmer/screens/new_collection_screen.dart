@@ -1,7 +1,13 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+import 'package:speech_to_text/speech_recognition_result.dart' as stt;
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:http/http.dart' as http;
+
 import '../../../core/theme/app_theme.dart';
 import '../../../core/providers/locale_provider.dart';
 import '../../../core/services/location_service.dart';
@@ -31,6 +37,11 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
   bool _isLoadingWeather = false;
   bool _isSubmitting = false;
 
+  late stt.SpeechToText _speech;
+  bool _isListeningSpecies = false;
+  bool _isListeningWeight = false;
+  bool _isListeningMoisture = false;
+
   final List<String> _herbSpecies = [
     'Ashwagandha',
     'Tulsi',
@@ -45,6 +56,7 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
   @override
   void initState() {
     super.initState();
+    _speech = stt.SpeechToText();
     _getCurrentLocation();
   }
 
@@ -55,6 +67,52 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
     _moistureController.dispose();
     super.dispose();
   }
+
+  Future<void> _startListening(TextEditingController controller, String field) async {
+    bool available = await _speech.initialize();
+    if (!available) return;
+
+    setState(() {
+      _isListeningSpecies = field == 'species';
+      _isListeningWeight = field == 'weight';
+      _isListeningMoisture = field == 'moisture';
+    });
+
+    _speech.listen(
+      onResult: (stt.SpeechRecognitionResult result) {
+        setState(() {
+          controller.text = result.recognizedWords;
+        });
+
+        // Stop automatically when final result is received
+        if (result.finalResult) {
+          _stopListening();
+        }
+      },
+      listenMode: stt.ListenMode.dictation,
+      partialResults: true,
+      cancelOnError: true,
+    );
+  }
+
+  void _stopListening() {
+    _speech.stop();
+    setState(() {
+      _isListeningSpecies = false;
+      _isListeningWeight = false;
+      _isListeningMoisture = false;
+    });
+  }
+
+
+  // void _stopListening() {
+  //   _speech.stop();
+  //   setState(() {
+  //     _isListeningSpecies = false;
+  //     _isListeningWeight = false;
+  //     _isListeningMoisture = false;
+  //   });
+  // }
 
   Future<void> _getCurrentLocation() async {
     setState(() {
@@ -69,8 +127,6 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
         _latitude = position.latitude;
         _longitude = position.longitude;
       });
-      
-      // Fetch weather data after getting location
       await _getWeatherData();
     }
 
@@ -105,25 +161,33 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
   }
 
   Future<void> _captureImage() async {
-    if (_images.length >= 3) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Maximum 3 images allowed')),
+    try {
+      if (_images.length >= 3) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Maximum 3 images allowed')),
+        );
+        return;
+      }
+
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 70,
       );
-      return;
-    }
 
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
-      source: ImageSource.camera,
-      maxWidth: 1920,
-      maxHeight: 1080,
-      imageQuality: 85,
-    );
-
-    if (pickedFile != null) {
-      setState(() {
-        _images.add(File(pickedFile.path));
-      });
+      if (pickedFile != null && mounted) {
+        setState(() {
+          _images.add(File(pickedFile.path));
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error capturing image: $e')),
+        );
+      }
     }
   }
 
@@ -144,47 +208,67 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
       return;
     }
 
-    setState(() {
-      _isSubmitting = true;
-    });
+    setState(() => _isSubmitting = true);
 
     final authProvider = context.read<AuthProvider>();
     final collectionProvider = context.read<CollectionProvider>();
 
     try {
-      final eventId = await collectionProvider.createCollectionEvent(
-        farmerId: authProvider.currentUser!.id,
-        species: _speciesController.text,
-        latitude: _latitude!,
-        longitude: _longitude!,
-        imagePaths: _images.map((f) => f.path).toList(),
-        weight: _weightController.text.isNotEmpty
-            ? double.tryParse(_weightController.text)
-            : null,
-        moisture: _moistureController.text.isNotEmpty
-            ? double.tryParse(_moistureController.text)
-            : null,
-        temperature: _temperature,
-        humidity: _humidity,
+      final payload = {
+        "species": _speciesController.text,
+        "quantity": double.tryParse(_weightController.text) ?? 0,
+        "unit": "kg",
+        "harvestDate": DateTime.now().toIso8601String().split('T')[0],
+        "latitude": _latitude!.toString(),
+        "longitude": _longitude!.toString(),
+        "location":
+        "Lat: ${_latitude!.toStringAsFixed(6)}, Lon: ${_longitude!.toStringAsFixed(6)}"
+      };
+
+      final response = await http.post(
+        Uri.parse(
+            'https://herbal-trace-production.up.railway.app/api/v1/collections'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJhZG1pbi0wMDEiLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBoZXJiYWx0cmFjZS5jb20iLCJmdWxsTmFtZSI6IlN5c3RlbSBBZG1pbmlzdHJhdG9yIiwib3JnTmFtZSI6IkhlcmJhbFRyYWNlIiwicm9sZSI6IkFkbWluIiwiaWF0IjoxNzY1MTQzMDA0LCJleHAiOjE3NjUyMjk0MDR9.O_shrDHZfmHVj4r5SDU5LMN0vXnHdSia4viUdeA2GXY',
+        },
+        body: jsonEncode(payload),
       );
 
-      if (!mounted) return;
+      final decoded = jsonDecode(response.body);
+      print('Response Body: ${response.body}');
 
-      // Show success screen
-      _showSuccessDialog(eventId);
+      if ((response.statusCode == 200 || response.statusCode == 201) &&
+          decoded['success'] == true) {
+        await collectionProvider.createCollectionEvent(
+          farmerId: authProvider.currentUser!.id,
+          species: _speciesController.text,
+          latitude: _latitude!,
+          longitude: _longitude!,
+          imagePaths: _images.map((f) => f.path).toList(),
+          weight: double.tryParse(_weightController.text),
+          moisture: double.tryParse(_moistureController.text),
+          temperature: _temperature,
+          humidity: _humidity,
+        );
+
+        final eventId = decoded['data']?['id'] ?? 'success';
+        if (!mounted) return;
+        _showSuccessDialog(eventId);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(
+                  'Submission failed: ${response.statusCode} ${response.reasonPhrase}')),
+        );
+      }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: AppTheme.error,
-        ),
+        SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.error),
       );
     } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -212,35 +296,26 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
             const SizedBox(height: 20),
             const Text(
               'Submission Successful!',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
               'Event ID: ${eventId.substring(0, 8)}',
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppTheme.textSecondary,
-              ),
+              style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 8),
             if (_latitude != null && _longitude != null)
               Text(
                 'Location: ${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.textSecondary,
-                ),
+                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                 textAlign: TextAlign.center,
               ),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
-                Navigator.of(context).pop(); // Return to dashboard
+                Navigator.of(context).pop();
+                Navigator.of(context).pop();
               },
               child: const Text('Back to Dashboard'),
             ),
@@ -265,32 +340,22 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // GPS Location Card
               _buildLocationCard(localeProvider),
-
               const SizedBox(height: 20),
-
-              // Camera Section
               _buildCameraSection(localeProvider),
-
               const SizedBox(height: 20),
 
-              // Species Selection
+              // SPECIES WITH VOICE
               Autocomplete<String>(
                 optionsBuilder: (textEditingValue) {
-                  if (textEditingValue.text.isEmpty) {
-                    return _herbSpecies;
-                  }
-                  return _herbSpecies.where((species) => species
-                      .toLowerCase()
-                      .contains(textEditingValue.text.toLowerCase()));
+                  if (textEditingValue.text.isEmpty) return _herbSpecies;
+                  return _herbSpecies.where((species) =>
+                      species.toLowerCase().contains(textEditingValue.text.toLowerCase()));
                 },
                 onSelected: (selection) {
                   _speciesController.text = selection;
                 },
-                fieldViewBuilder:
-                    (context, controller, focusNode, onEditingComplete) {
-                  _speciesController.text = controller.text;
+                fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
                   return TextFormField(
                     controller: controller,
                     focusNode: focusNode,
@@ -299,9 +364,7 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
                       prefixIcon: const Icon(Icons.local_florist),
                     ),
                     validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please select a species';
-                      }
+                      if (value == null || value.isEmpty) return 'Please select a species';
                       return null;
                     },
                   );
@@ -310,7 +373,7 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
 
               const SizedBox(height: 16),
 
-              // Weight
+              // WEIGHT WITH VOICE
               TextFormField(
                 controller: _weightController,
                 keyboardType: TextInputType.number,
@@ -318,12 +381,22 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
                   labelText: localeProvider.translate('weight'),
                   prefixIcon: const Icon(Icons.scale),
                   suffixText: 'kg',
+                  suffixIcon: IconButton(
+                    icon: Icon(_isListeningWeight ? Icons.mic : Icons.mic_none),
+                    onPressed: () {
+                      if (_isListeningWeight) {
+                        _stopListening();
+                      } else {
+                        _startListening(_weightController, 'weight');
+                      }
+                    },
+                  ),
                 ),
               ),
 
               const SizedBox(height: 16),
 
-              // Moisture
+              // MOISTURE WITH VOICE
               TextFormField(
                 controller: _moistureController,
                 keyboardType: TextInputType.number,
@@ -331,12 +404,22 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
                   labelText: localeProvider.translate('moisture'),
                   prefixIcon: const Icon(Icons.water_drop),
                   suffixText: '%',
+                  suffixIcon: IconButton(
+                    icon: Icon(_isListeningMoisture ? Icons.mic : Icons.mic_none),
+                    onPressed: () {
+                      if (_isListeningMoisture) {
+                        _stopListening();
+                      } else {
+                        _startListening(_moistureController, 'moisture');
+                      }
+                    },
+                  ),
                 ),
               ),
 
               const SizedBox(height: 16),
 
-              // Weather Data Section (Auto-fetched)
+              // WEATHER SECTION
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -411,7 +494,6 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
 
               const SizedBox(height: 32),
 
-              // Submit Button
               ElevatedButton(
                 onPressed: _isSubmitting ? null : _handleSubmit,
                 style: ElevatedButton.styleFrom(
@@ -419,19 +501,17 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
                 ),
                 child: _isSubmitting
                     ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
                     : Text(
-                        localeProvider.translate('submit'),
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
+                  localeProvider.translate('submit'),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
               ),
             ],
           ),
@@ -452,22 +532,12 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
               children: [
                 Text(
                   localeProvider.translate('gps_location'),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
                 if (_isLoadingLocation)
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
+                  const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                 else
-                  IconButton(
-                    icon: const Icon(Icons.refresh),
-                    onPressed: _getCurrentLocation,
-                  ),
+                  IconButton(icon: const Icon(Icons.refresh), onPressed: _getCurrentLocation),
               ],
             ),
             const SizedBox(height: 12),
@@ -486,20 +556,8 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Location Captured',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w500,
-                              color: AppTheme.success,
-                            ),
-                          ),
-                          Text(
-                            '${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
+                          const Text('Location Captured', style: TextStyle(fontWeight: FontWeight.w500, color: AppTheme.success)),
+                          Text('${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                         ],
                       ),
                     ),
@@ -517,12 +575,7 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
                   children: [
                     Icon(Icons.location_off, color: AppTheme.warning),
                     SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Acquiring GPS location...',
-                        style: TextStyle(color: AppTheme.warning),
-                      ),
-                    ),
+                    Expanded(child: Text('Acquiring GPS location...', style: TextStyle(color: AppTheme.warning))),
                   ],
                 ),
               ),
@@ -541,10 +594,7 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
           children: [
             Text(
               localeProvider.translate('capture_image'),
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),
             if (_images.isNotEmpty)
@@ -554,63 +604,61 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
                   scrollDirection: Axis.horizontal,
                   itemCount: _images.length,
                   itemBuilder: (context, index) {
+                    final file = _images[index];
                     return Stack(
                       children: [
                         Container(
+                          margin: const EdgeInsets.only(right: 8),
                           width: 100,
                           height: 100,
-                          margin: const EdgeInsets.only(right: 12),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            image: DecorationImage(
-                              image: FileImage(_images[index]),
+                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.grey[200],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(
+                              file,
                               fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Center(
+                                  child: Icon(Icons.broken_image, color: Colors.red),
+                                );
+                              },
                             ),
                           ),
                         ),
                         Positioned(
-                          top: 4,
-                          right: 16,
+                          top: 0,
+                          right: 0,
                           child: GestureDetector(
                             onTap: () {
                               setState(() {
                                 _images.removeAt(index);
                               });
                             },
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.close,
-                                size: 16,
-                                color: Colors.white,
-                              ),
+                            child: const CircleAvatar(
+                              radius: 12,
+                              backgroundColor: Colors.red,
+                              child: Icon(Icons.close, size: 16, color: Colors.white),
                             ),
                           ),
-                        ),
+                        )
                       ],
                     );
                   },
                 ),
               ),
-            const SizedBox(height: 12),
-            if (_images.length < 3)
-              OutlinedButton.icon(
-                onPressed: _captureImage,
-                icon: const Icon(Icons.camera_alt),
-                label: Text(
-                    '${_images.isEmpty ? 'Capture' : 'Add Another'} Image (${_images.length}/3)'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.primaryGreen,
-                  side: const BorderSide(color: AppTheme.primaryGreen),
-                ),
-              ),
+            const SizedBox(height: 8),
+            ElevatedButton.icon(
+              onPressed: _captureImage,
+              icon: const Icon(Icons.camera_alt),
+              label: Text(localeProvider.translate('capture_image')),
+            ),
           ],
         ),
       ),
     );
   }
+
 }
