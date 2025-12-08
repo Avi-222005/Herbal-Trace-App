@@ -55,6 +55,7 @@ class LocaleProvider extends ChangeNotifier {
     'rewards': 'Rewards',
     'synced': 'Synced',
     'pending': 'Pending',
+    'Complaint' : 'Complaint',
 
     // Collection Event
     'species': 'Species',
@@ -102,6 +103,7 @@ class LocaleProvider extends ChangeNotifier {
     'rewards': 'पुरस्कार',
     'synced': 'सिंक किया गया',
     'pending': 'लंबित',
+    'Complaint' : 'शिकायत करो',
 
     // Collection Event
     'species': 'प्रजाति',
