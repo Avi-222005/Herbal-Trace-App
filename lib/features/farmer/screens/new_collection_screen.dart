@@ -230,7 +230,7 @@ class _NewCollectionScreenState extends State<NewCollectionScreen> {
             'https://herbal-trace-production.up.railway.app/api/v1/collections'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer YOUR_TOKEN_HERE',
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJhZG1pbi0wMDEiLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBoZXJiYWx0cmFjZS5jb20iLCJmdWxsTmFtZSI6IlN5c3RlbSBBZG1pbmlzdHJhdG9yIiwib3JnTmFtZSI6IkhlcmJhbFRyYWNlIiwicm9sZSI6IkFkbWluIiwiaWF0IjoxNzY1MTQzMDA0LCJleHAiOjE3NjUyMjk0MDR9.O_shrDHZfmHVj4r5SDU5LMN0vXnHdSia4viUdeA2GXY',
         },
         body: jsonEncode(payload),
       );
