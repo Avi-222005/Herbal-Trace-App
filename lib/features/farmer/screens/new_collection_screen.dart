@@ -723,6 +723,8 @@ class _NewCollectionScreenState extends State<NewCollectionScreen>
             locationName: _locationNameController.text.isNotEmpty ? _locationNameController.text : null,
             soilType: _selectedSoilType,
             notes: _notesController.text.isNotEmpty ? _notesController.text : null,
+            isSynced: true, // Mark as synced since API call was successful
+            blockchainHash: decoded['data']?['id'] ?? 'synced', // Use collection ID from response
           );
           _showSuccessDialog(decoded['data']?['id'] ?? 'success');
         } else {

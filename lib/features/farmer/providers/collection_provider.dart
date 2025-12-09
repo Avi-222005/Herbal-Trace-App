@@ -53,6 +53,8 @@ class CollectionProvider extends ChangeNotifier {
     String? locationName,
     String? soilType,
     String? notes,
+    bool isSynced = false,
+    String? blockchainHash,
   }) async {
     final event = CollectionEvent(
       id: const Uuid().v4(),
@@ -67,7 +69,8 @@ class CollectionProvider extends ChangeNotifier {
       humidity: humidity,
       weatherCondition: weatherCondition,
       timestamp: DateTime.now(),
-      isSynced: false,
+      isSynced: isSynced,
+      blockchainHash: blockchainHash,
       commonName: commonName,
       scientificName: scientificName,
       harvestMethod: harvestMethod,
