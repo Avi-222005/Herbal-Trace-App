@@ -61,16 +61,16 @@ class SubmissionHistoryScreen extends StatelessWidget {
               )
             : TabBarView(
                 children: [
-                  _buildEventList(allEvents, localeProvider),
-                  _buildEventList(syncedEvents, localeProvider),
-                  _buildEventList(unsyncedEvents, localeProvider),
+                  _buildEventList(context, allEvents, localeProvider),
+                  _buildEventList(context, syncedEvents, localeProvider),
+                  _buildEventList(context, unsyncedEvents, localeProvider),
                 ],
               ),
       ),
     );
   }
 
-  Widget _buildEventList(List events, LocaleProvider localeProvider) {
+  Widget _buildEventList(BuildContext context, List events, LocaleProvider localeProvider) {
     if (events.isEmpty) {
       return Center(
         child: Column(
@@ -98,7 +98,7 @@ class SubmissionHistoryScreen extends StatelessWidget {
       onRefresh: () async {
         // Refresh collections from backend
         final collectionProvider = Provider.of<CollectionProvider>(
-          context as BuildContext,
+          context,
           listen: false,
         );
         await collectionProvider.loadEvents();
