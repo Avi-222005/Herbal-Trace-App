@@ -36,16 +36,13 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Check developer mode before running app - DISABLED FOR TESTING
-  // bool devModeEnabled = await DeveloperModeUtils.isDeveloperModeOn();
-  // if (devModeEnabled) {
-  //   runApp(const DeveloperModeBlockedApp());
-  // } else {
-  //   runApp(const HerbalTraceApp());
-  // }
-  
-  // Run app directly without developer mode check
-  runApp(const HerbalTraceApp());
+  // Check developer mode before running app
+  bool devModeEnabled = await DeveloperModeUtils.isDeveloperModeOn();
+  if (devModeEnabled) {
+    runApp(const DeveloperModeBlockedApp());
+  } else {
+    runApp(const HerbalTraceApp());
+  }
 }
 
 // ------------------- Developer Mode Utils -------------------

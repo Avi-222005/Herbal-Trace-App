@@ -173,30 +173,7 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
             ),
             const Spacer(),
 
-
-
-
-            // Switch(
-            //   value: _toggleNewCollection,
-            //   activeColor: Colors.white,
-            //   onChanged: (value) {
-            //     setState(() {
-            //       _toggleNewCollection = value;
-            //     });
-            //
-            //     if (value) {
-            //       Navigator.of(context).pushNamed(AppRouter.newCollection).then((_) {
-            //         setState(() {
-            //           _toggleNewCollection = false; // Reset toggle after return
-            //         });
-            //       });
-            //     }
-            //   },
-            // ),
-
-
-
-
+            
             Container(
               decoration: BoxDecoration(
                 color: Colors.grey.shade100,

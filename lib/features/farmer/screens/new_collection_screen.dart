@@ -65,6 +65,18 @@ class _NewCollectionScreenState extends State<NewCollectionScreen>
     'Amla',
   ];
 
+  // Hindi translations for species
+  final Map<String, String> _herbSpeciesHindi = {
+    'Ashwagandha': 'अश्वगंधा',
+    'Tulsi': 'तुलसी',
+    'Brahmi': 'ब्राह्मी',
+    'Neem': 'नीम',
+    'Turmeric': 'हल्दी',
+    'Ginger': 'अदरक',
+    'Aloe Vera': 'घृतकुमारी',
+    'Amla': 'आंवला',
+  };
+
   // Species details map with common and scientific names
   final Map<String, Map<String, String>> _speciesDetails = {
     'Ashwagandha': {
@@ -822,8 +834,14 @@ class _NewCollectionScreenState extends State<NewCollectionScreen>
               Autocomplete<String>(
                 optionsBuilder: (textEditingValue) {
                   if (textEditingValue.text.isEmpty) return _herbSpecies;
-                  return _herbSpecies.where((species) =>
-                      species.toLowerCase().contains(textEditingValue.text.toLowerCase()));
+                  return _herbSpecies.where((species) {
+                    final displayName = localeProvider.isHindi ? _herbSpeciesHindi[species]! : species;
+                    return displayName.toLowerCase().contains(textEditingValue.text.toLowerCase()) ||
+                           species.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                  });
+                },
+                displayStringForOption: (species) {
+                  return localeProvider.isHindi ? _herbSpeciesHindi[species]! : species;
                 },
                 onSelected: (selection) {
                   _speciesController.text = selection;
@@ -834,6 +852,13 @@ class _NewCollectionScreenState extends State<NewCollectionScreen>
                   }
                 },
                 fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
+                  // Show Hindi name in the field if Hindi mode is on
+                  if (localeProvider.isHindi && _speciesController.text.isNotEmpty) {
+                    controller.text = _herbSpeciesHindi[_speciesController.text] ?? _speciesController.text;
+                  } else if (!localeProvider.isHindi && _speciesController.text.isNotEmpty) {
+                    controller.text = _speciesController.text;
+                  }
+                  
                   return TextFormField(
                     controller: controller,
                     focusNode: focusNode,
