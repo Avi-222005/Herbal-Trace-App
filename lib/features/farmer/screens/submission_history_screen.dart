@@ -15,6 +15,7 @@ class SubmissionHistoryScreen extends StatelessWidget {
     final allEvents = collectionProvider.events;
     final syncedEvents = collectionProvider.syncedEvents;
     final unsyncedEvents = collectionProvider.unsyncedEvents;
+    final isLoading = collectionProvider.isLoading;
 
     return DefaultTabController(
       length: 3,
@@ -39,13 +40,32 @@ class SubmissionHistoryScreen extends StatelessWidget {
             ],
           ),
         ),
-        body: TabBarView(
-          children: [
-            _buildEventList(allEvents, localeProvider),
-            _buildEventList(syncedEvents, localeProvider),
-            _buildEventList(unsyncedEvents, localeProvider),
-          ],
-        ),
+        body: isLoading
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    Text(
+                      localeProvider.isHindi
+                          ? 'डेटाबेस से संग्रह लोड हो रहा है...'
+                          : 'Loading collections from database...',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : TabBarView(
+                children: [
+                  _buildEventList(allEvents, localeProvider),
+                  _buildEventList(syncedEvents, localeProvider),
+                  _buildEventList(unsyncedEvents, localeProvider),
+                ],
+              ),
       ),
     );
   }
@@ -76,7 +96,12 @@ class SubmissionHistoryScreen extends StatelessWidget {
 
     return RefreshIndicator(
       onRefresh: () async {
-        // Refresh logic here
+        // Refresh collections from backend
+        final collectionProvider = Provider.of<CollectionProvider>(
+          context as BuildContext,
+          listen: false,
+        );
+        await collectionProvider.loadEvents();
       },
       child: ListView.builder(
         padding: const EdgeInsets.all(16),

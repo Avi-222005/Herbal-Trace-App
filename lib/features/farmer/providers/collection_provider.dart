@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/models/collection_event.dart';
 import '../../../core/services/storage_service.dart';
+import '../../../core/services/collection_service.dart';
 
 class CollectionProvider extends ChangeNotifier {
   final List<CollectionEvent> _events = [];
@@ -24,6 +25,35 @@ class CollectionProvider extends ChangeNotifier {
 
     try {
       _events.clear();
+      
+      // Load local collections from Hive
+      final localEvents = StorageService.getAllCollectionEvents();
+      
+      // Fetch collections from backend database
+      final backendEvents = await CollectionService.fetchAllCollections();
+      
+      // Merge local and backend events (avoid duplicates)
+      final Map<String, CollectionEvent> mergedEvents = {};
+      
+      // Add local events first
+      for (var event in localEvents) {
+        mergedEvents[event.id] = event;
+      }
+      
+      // Add backend events (will override local if same ID exists)
+      for (var event in backendEvents) {
+        if (!mergedEvents.containsKey(event.id)) {
+          mergedEvents[event.id] = event;
+        }
+      }
+      
+      _events.addAll(mergedEvents.values);
+      _events.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      
+      print('✅ Total collections loaded: ${_events.length} (Local: ${localEvents.length}, Backend: ${backendEvents.length})');
+    } catch (e) {
+      print('❌ Error loading events: $e');
+      // Fall back to local only if backend fetch fails
       _events.addAll(StorageService.getAllCollectionEvents());
       _events.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     } finally {
