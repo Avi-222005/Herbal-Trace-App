@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../../core/theme/app_theme.dart';
 import '../../../core/providers/locale_provider.dart';
+import '../../../core/services/complaint_service.dart';
+import '../../auth/providers/auth_provider.dart';
 
 class ComplainPage extends StatefulWidget {
   const ComplainPage({super.key});
@@ -21,6 +23,8 @@ class _ComplainPageState extends State<ComplainPage> {
 
   late stt.SpeechToText _speech;
   bool _isListening = false;
+  bool _isSubmitting = false;
+  final ComplaintService _complaintService = ComplaintService();
 
   @override
   void initState() {
@@ -162,15 +166,26 @@ class _ComplainPageState extends State<ComplainPage> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    onPressed: () {
-                      if (_formKey.currentState!.validate()) {
-                        _showSuccessDialog(localeProvider);
-                      }
-                    },
-                    child: Text(
-                      localeProvider.isHindi ? "शिकायत दर्ज करें" : "Submit Complaint",
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
+                    onPressed: _isSubmitting
+                        ? null
+                        : () async {
+                            if (_formKey.currentState!.validate()) {
+                              await _submitComplaint(localeProvider);
+                            }
+                          },
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            localeProvider.isHindi ? "शिकायत दर्ज करें" : "Submit Complaint",
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
                   ),
                 )
               ],
@@ -245,14 +260,110 @@ class _ComplainPageState extends State<ComplainPage> {
     }
   }
 
+  /// Submit complaint to backend
+  Future<void> _submitComplaint(LocaleProvider localeProvider) async {
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final authProvider = context.read<AuthProvider>();
+      final user = authProvider.currentUser;
+
+      if (user == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(localeProvider.isHindi
+                  ? 'कृपया पहले लॉगिन करें'
+                  : 'Please login first'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final result = await _complaintService.submitComplaint(
+        userId: user.id,
+        userName: user.name,
+        userEmail: user.email,
+        complaintType: _selectedType ?? 'General',
+        subject: subjectController.text.trim(),
+        description: messageController.text.trim(),
+      );
+
+      if (mounted) {
+        if (result['success']) {
+          _showSuccessDialog(localeProvider, result['complaintId']);
+          // Clear form after successful submission
+          subjectController.clear();
+          messageController.clear();
+          setState(() {
+            _selectedType = null;
+          });
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 
+                  (localeProvider.isHindi 
+                      ? 'शिकायत सबमिट करने में विफल' 
+                      : 'Failed to submit complaint')),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(localeProvider.isHindi
+                ? 'त्रुटि: $e'
+                : 'Error: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
   /// Success Popup
-  void _showSuccessDialog(LocaleProvider localeProvider) {
+  void _showSuccessDialog(LocaleProvider localeProvider, [String? complaintId]) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(localeProvider.isHindi ? "शिकायत दर्ज की गई" : "Complaint Submitted"),
-        content: Text(localeProvider.isHindi ? "धन्यवाद! हम जल्द ही आपसे संपर्क करेंगे।" : "Thank you! We will get back to you soon."),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(localeProvider.isHindi 
+                ? "धन्यवाद! हम जल्द ही आपसे संपर्क करेंगे।" 
+                : "Thank you! We will get back to you soon."),
+            if (complaintId != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                localeProvider.isHindi 
+                    ? "शिकायत ID: $complaintId" 
+                    : "Complaint ID: $complaintId",
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: Colors.grey,
+                ),
+              ),
+            ],
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

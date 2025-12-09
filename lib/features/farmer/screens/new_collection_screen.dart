@@ -65,6 +65,42 @@ class _NewCollectionScreenState extends State<NewCollectionScreen>
     'Amla',
   ];
 
+  // Species details map with common and scientific names
+  final Map<String, Map<String, String>> _speciesDetails = {
+    'Ashwagandha': {
+      'commonName': 'Indian Ginseng',
+      'scientificName': 'Withania somnifera',
+    },
+    'Tulsi': {
+      'commonName': 'Holy Basil',
+      'scientificName': 'Ocimum sanctum',
+    },
+    'Brahmi': {
+      'commonName': 'Water Hyssop',
+      'scientificName': 'Bacopa monnieri',
+    },
+    'Neem': {
+      'commonName': 'Indian Lilac',
+      'scientificName': 'Azadirachta indica',
+    },
+    'Turmeric': {
+      'commonName': 'Haldi',
+      'scientificName': 'Curcuma longa',
+    },
+    'Ginger': {
+      'commonName': 'Adrak',
+      'scientificName': 'Zingiber officinale',
+    },
+    'Aloe Vera': {
+      'commonName': 'Ghritkumari',
+      'scientificName': 'Aloe barbadensis miller',
+    },
+    'Amla': {
+      'commonName': 'Indian Gooseberry',
+      'scientificName': 'Phyllanthus emblica',
+    },
+  };
+
   final List<String> _soilTypes = [
     'Loamy',
     'Clay',
@@ -77,12 +113,31 @@ class _NewCollectionScreenState extends State<NewCollectionScreen>
     'Alluvial',
   ];
 
+  final Map<String, String> _soilTypesHindi = {
+    'Loamy': 'दोमट',
+    'Clay': 'चिकनी मिट्टी',
+    'Sandy': 'रेतीली',
+    'Silt': 'गाद',
+    'Peaty': 'पीटयुक्त',
+    'Chalky': 'खड़िया',
+    'Red Soil': 'लाल मिट्टी',
+    'Black Soil': 'काली मिट्टी',
+    'Alluvial': 'जलोढ़',
+  };
+
   final List<String> _harvestMethods = [
     'Manual Harvesting',
     'Mechanical Harvesting',
     'Semi-Mechanical',
     'Selective Harvesting',
   ];
+
+  final Map<String, String> _harvestMethodsHindi = {
+    'Manual Harvesting': 'हाथ से कटाई',
+    'Mechanical Harvesting': 'यांत्रिक कटाई',
+    'Semi-Mechanical': 'अर्ध-यांत्रिक',
+    'Selective Harvesting': 'चयनात्मक कटाई',
+  };
 
   final List<String> _partCollectedOptions = [
     'Whole Plant',
@@ -95,6 +150,18 @@ class _NewCollectionScreenState extends State<NewCollectionScreen>
     'Rhizome',
     'Stem',
   ];
+
+  final Map<String, String> _partCollectedHindi = {
+    'Whole Plant': 'पूरा पौधा',
+    'Leaves': 'पत्तियां',
+    'Roots': 'जड़ें',
+    'Flowers': 'फूल',
+    'Seeds': 'बीज',
+    'Bark': 'छाल',
+    'Fruits': 'फल',
+    'Rhizome': 'प्रकंद',
+    'Stem': 'तना',
+  };
 
   String? _selectedSoilType;
   String? _selectedHarvestMethod;
@@ -321,6 +388,8 @@ class _NewCollectionScreenState extends State<NewCollectionScreen>
     final position = await locationService.getCurrentLocation();
 
     if (position != null) {
+      print('DEBUG: Location fetched - Lat: ${position.latitude}, Lon: ${position.longitude}');
+      
       setState(() {
         _latitude = position.latitude;
         _longitude = position.longitude;
@@ -333,7 +402,47 @@ class _NewCollectionScreenState extends State<NewCollectionScreen>
         'altitude': _altitude,
         'accuracy': _accuracy,
       });
+      
+      // Get location name using reverse geocoding
+      print('DEBUG: Fetching location name via reverse geocoding...');
+      final locationName = await locationService.getLocationName(
+        position.latitude,
+        position.longitude,
+      );
+      
+      print('DEBUG: Location name received: $locationName');
+      
+      if (locationName != null && mounted) {
+        setState(() {
+          _locationNameController.text = locationName;
+        });
+        // Cache location name
+        _cacheBox.put('location_name', locationName);
+        print('DEBUG: Location name set to field: $locationName');
+      } else {
+        print('DEBUG: Location name is null or widget not mounted');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not fetch location name. Please try again.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+      
       await _getWeatherData();
+    } else {
+      print('DEBUG: Position is null - location fetch failed');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not fetch location. Please enable GPS and grant location permission.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
     }
 
     setState(() {
@@ -716,6 +825,11 @@ class _NewCollectionScreenState extends State<NewCollectionScreen>
                 },
                 onSelected: (selection) {
                   _speciesController.text = selection;
+                  // Auto-fill common name and scientific name
+                  if (_speciesDetails.containsKey(selection)) {
+                    _commonNameController.text = _speciesDetails[selection]!['commonName']!;
+                    _scientificNameController.text = _speciesDetails[selection]!['scientificName']!;
+                  }
                 },
                 fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
                   return TextFormField(
@@ -796,10 +910,13 @@ class _NewCollectionScreenState extends State<NewCollectionScreen>
               // Common Name
               TextFormField(
                 controller: _commonNameController,
+                readOnly: true,
                 decoration: InputDecoration(
                   labelText: localeProvider.isHindi ? 'सामान्य नाम' : 'Common Name',
                   prefixIcon: const Icon(Icons.grass),
                   hintText: localeProvider.isHindi ? 'उदा., अश्वगंधा' : 'e.g., Indian Ginseng',
+                  filled: true,
+                  fillColor: Colors.grey[100],
                 ),
               ),
 
@@ -808,10 +925,13 @@ class _NewCollectionScreenState extends State<NewCollectionScreen>
               // Scientific Name
               TextFormField(
                 controller: _scientificNameController,
+                readOnly: true,
                 decoration: InputDecoration(
                   labelText: localeProvider.isHindi ? 'वैज्ञानिक नाम' : 'Scientific Name',
                   prefixIcon: const Icon(Icons.science),
                   hintText: 'e.g., Withania somnifera',
+                  filled: true,
+                  fillColor: Colors.grey[100],
                 ),
               ),
 
@@ -828,7 +948,7 @@ class _NewCollectionScreenState extends State<NewCollectionScreen>
                 items: _harvestMethods.map((method) {
                   return DropdownMenuItem<String>(
                     value: method,
-                    child: Text(method),
+                    child: Text(localeProvider.isHindi ? _harvestMethodsHindi[method]! : method),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -851,7 +971,7 @@ class _NewCollectionScreenState extends State<NewCollectionScreen>
                 items: _partCollectedOptions.map((part) {
                   return DropdownMenuItem<String>(
                     value: part,
-                    child: Text(part),
+                    child: Text(localeProvider.isHindi ? _partCollectedHindi[part]! : part),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -866,10 +986,13 @@ class _NewCollectionScreenState extends State<NewCollectionScreen>
               // Location Name
               TextFormField(
                 controller: _locationNameController,
+                readOnly: true,
                 decoration: InputDecoration(
                   labelText: localeProvider.isHindi ? 'स्थान का नाम' : 'Location Name',
                   prefixIcon: const Icon(Icons.location_city),
                   hintText: localeProvider.isHindi ? 'उदा., गांव का नाम, फार्म का नाम' : 'e.g., Village name, Farm name',
+                  filled: true,
+                  fillColor: Colors.grey[100],
                 ),
               ),
 
@@ -886,7 +1009,7 @@ class _NewCollectionScreenState extends State<NewCollectionScreen>
                 items: _soilTypes.map((soil) {
                   return DropdownMenuItem<String>(
                     value: soil,
-                    child: Text(soil),
+                    child: Text(localeProvider.isHindi ? _soilTypesHindi[soil]! : soil),
                   );
                 }).toList(),
                 onChanged: (value) {
